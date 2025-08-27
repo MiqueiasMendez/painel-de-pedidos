@@ -1,0 +1,15 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Verificar erros e compilar o projeto",
+			"type": "shell",
+			"command": "npx tsc --noEmit && echo 'Compilação OK - sem erros!' && npm run build",
+			"group": "build",
+			"problemMatcher": [
+				"$tsc"
+			],
+			"isBackground": false
+		}
+	]
+}
