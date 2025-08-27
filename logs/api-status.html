@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnóstico da API</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #e25822;
+            border-bottom: 2px solid #e25822;
+            padding-bottom: 10px;
+        }
+        button {
+            background: #e25822;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #c73c00;
+        }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .log-container {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .warning {
+            color: #ffc107;
+        }
+        .info {
+            color: #17a2b8;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Diagnóstico da API - Painel de Pedidos</h1>
+
+    <div class="card">
+        <h2>Testes Rápidos</h2>
+        <button id="testConnection">Testar Conexão</button>
+        <button id="testCors">Testar CORS</button>
+        <button id="testAlternatives">Testar Endpoints Alternativos</button>
+        <button id="clearLogs">Limpar Logs</button>
+    </div>
+
+    <div class="card">
+        <h2>Status Atual</h2>
+        <table>
+            <tr>
+                <th>Componente</th>
+                <th>Status</th>
+                <th>Detalhes</th>
+            </tr>
+            <tr>
+                <td>API Base</td>
+                <td id="apiStatus">Desconhecido</td>
+                <td id="apiDetails">-</td>
+            </tr>
+            <tr>
+                <td>CORS</td>
+                <td id="corsStatus">Desconhecido</td>
+                <td id="corsDetails">-</td>
+            </tr>
+            <tr>
+                <td>Resposta da API</td>
+                <td id="responseStatus">Desconhecido</td>
+                <td id="responseDetails">-</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Configuração da API</h2>
+        <pre id="apiConfig"></pre>
+    </div>
+
+    <h2>Logs</h2>
+    <div class="log-container" id="logContainer"></div>
+
+    <script>
+        // Configuração da API
+        const API_CONFIG = {
+            BASE_URL: 'https://mercado-api-9sw5.onrender.com/api',
+            SERVER_URL: 'https://mercado-api-9sw5.onrender.com',
+            TIMEOUT: 15000,
+            SYNC_INTERVAL: 5 * 60 * 1000,
+            HEALTH_CHECK_INTERVAL: 5 * 60 * 1000,
+            MAX_RETRIES: 3,
+            RETRY_DELAY: 5000,
+            CACHE_DURATION: 15 * 60 * 1000,
+            DEBUG: true
+        };
+
+        // Exibir configuração
+        document.getElementById('apiConfig').textContent = JSON.stringify(API_CONFIG, null, 2);
+
+        // Logger
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const logEntry = document.createElement('div');
+            logEntry.className = type;
+            
+            // Adicionar timestamp
+            const now = new Date();
+            const timestamp = `[${now.toLocaleTimeString()}] `;
+            
+            logEntry.textContent = timestamp + message;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // Atualizar status
+        function updateStatus(component, status, details) {
+            const statusElem = document.getElementById(`${component}Status`);
+            const detailsElem = document.getElementById(`${component}Details`);
+            
+            statusElem.textContent = status;
+            detailsElem.textContent = details;
+            
+            // Colorir com base no status
+            statusElem.className = '';
+            if (status === 'OK') {
+                statusElem.className = 'success';
+            } else if (status === 'Falha') {
+                statusElem.className = 'error';
+            } else if (status === 'Parcial') {
+                statusElem.className = 'warning';
+            }
+        }
+
+        // Testar conexão com a API
+        async function testApiConnection() {
+            log('Iniciando teste de conexão com a API...', 'info');
+            
+            const endpoints = [
+                `${API_CONFIG.SERVER_URL}/api/health`,
+                `${API_CONFIG.SERVER_URL}/health`,
+                `${API_CONFIG.SERVER_URL}/api/status`,
+                `${API_CONFIG.SERVER_URL}/status`,
+                `${API_CONFIG.SERVER_URL}/api`,
+                API_CONFIG.SERVER_URL
+            ];
+            
+            let successCount = 0;
+            const results = [];
+            
+            for (const endpoint of endpoints) {
+                try {
+                    log(`Testando endpoint: ${endpoint}`, 'info');
+                    
+                    const startTime = Date.now();
+                    const response = await fetch(endpoint, { 
+                        method: 'GET',
+                        mode: 'cors',
+                        cache: 'no-cache',
+                        headers: {
+                            'Accept': 'application/json, text/plain, */*'
+                        }
+                    });
+                    
+                    const duration = Date.now() - startTime;
+                    
+                    // Tentar ler a resposta
+                    let responseText = '';
+                    try {
+                        responseText = await response.text();
+                        responseText = responseText.substring(0, 100) + (responseText.length > 100 ? '...' : '');
+                    } catch (e) {
+                        responseText = 'Erro ao ler resposta';
+                    }
+                    
+                    results.push({ 
+                        endpoint, 
+                        status: response.status, 
+                        duration,
+                        responseText
+                    });
+                    
+                    if (response.ok) {
+                        successCount++;
+                        log(`✅ Endpoint ${endpoint}: ${response.status} OK (${duration}ms)`, 'success');
+                    } else {
+                        log(`⚠️ Endpoint ${endpoint}: ${response.status} ${response.statusText} (${duration}ms)`, 'warning');
+                    }
+                    
+                    log(`Resposta: ${responseText}`, 'info');
+                    
+                } catch (error) {
+                    log(`❌ Erro ao acessar ${endpoint}: ${error.message}`, 'error');
+                    results.push({ 
+                        endpoint, 
+                        status: 'Erro', 
+                        error: error.message
+                    });
+                }
+            }
+            
+            // Atualizar status geral
+            if (successCount === endpoints.length) {
+                updateStatus('api', 'OK', `Todos os ${endpoints.length} endpoints responderam com sucesso`);
+            } else if (successCount > 0) {
+                updateStatus('api', 'Parcial', `${successCount} de ${endpoints.length} endpoints responderam`);
+            } else {
+                updateStatus('api', 'Falha', 'Nenhum endpoint respondeu');
+            }
+            
+            return results;
+        }
+
+        // Testar CORS
+        async function testCors() {
+            log('Iniciando teste de CORS...', 'info');
+            
+            try {
+                // Tentar preflight
+                log('Testando preflight OPTIONS...', 'info');
+                try {
+                    const response = await fetch(API_CONFIG.SERVER_URL, {
+                        method: 'OPTIONS',
+                        mode: 'cors'
+                    });
+                    
+                    const corsHeaders = {
+                        'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                        'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+                        'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers')
+                    };
+                    
+                    log(`✅ Preflight resposta: ${response.status}`, 'success');
+                    log(`Headers CORS: ${JSON.stringify(corsHeaders)}`, 'info');
+                    
+                    const hasCorsHeaders = corsHeaders['Access-Control-Allow-Origin'] !== null;
+                    
+                    if (hasCorsHeaders) {
+                        updateStatus('cors', 'OK', 'Headers CORS presentes');
+                    } else {
+                        updateStatus('cors', 'Parcial', 'Headers CORS não encontrados');
+                    }
+                    
+                } catch (error) {
+                    log(`❌ Erro no preflight: ${error.message}`, 'error');
+                    updateStatus('cors', 'Falha', error.message);
+                }
+                
+                // Testar com proxies CORS
+                const corsProxies = [
+                    `https://corsproxy.io/?${encodeURIComponent(API_CONFIG.SERVER_URL)}`,
+                    `https://api.allorigins.win/get?url=${encodeURIComponent(API_CONFIG.SERVER_URL)}`
+                ];
+                
+                let proxySuccess = false;
+                
+                for (const proxyUrl of corsProxies) {
+                    try {
+                        log(`Testando via proxy CORS: ${proxyUrl}`, 'info');
+                        
+                        const response = await fetch(proxyUrl);
+                        const text = await response.text();
+                        
+                        log(`✅ Proxy ${proxyUrl.split('?')[0]}: ${response.status} OK`, 'success');
+                        log(`Resposta via proxy: ${text.substring(0, 100)}${text.length > 100 ? '...' : ''}`, 'info');
+                        
+                        proxySuccess = true;
+                    } catch (error) {
+                        log(`❌ Erro no proxy ${proxyUrl}: ${error.message}`, 'error');
+                    }
+                }
+                
+                if (proxySuccess) {
+                    log('✅ Pelo menos um proxy CORS funcionou', 'success');
+                } else {
+                    log('❌ Nenhum proxy CORS funcionou', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro geral nos testes de CORS: ${error.message}`, 'error');
+                updateStatus('cors', 'Falha', error.message);
+            }
+        }
+
+        // Testar endpoints alternativos
+        async function testAlternativeEndpoints() {
+            log('Testando endpoints de pedidos...', 'info');
+            
+            const endpoints = [
+                { method: 'POST', url: `${API_CONFIG.BASE_URL}/list-orders`, body: {} },
+                { method: 'GET', url: `${API_CONFIG.BASE_URL}/list-orders` },
+                { method: 'GET', url: `${API_CONFIG.BASE_URL}/orders` },
+                { method: 'GET', url: `${API_CONFIG.BASE_URL}/getOrders` },
+                { method: 'POST', url: `${API_CONFIG.BASE_URL}/orders`, body: {} }
+            ];
+            
+            let successCount = 0;
+            let responsesReceived = false;
+            
+            for (const endpoint of endpoints) {
+                try {
+                    log(`Testando ${endpoint.method} ${endpoint.url}`, 'info');
+                    
+                    const startTime = Date.now();
+                    const response = await fetch(endpoint.url, {
+                        method: endpoint.method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json, text/plain, */*'
+                        },
+                        body: endpoint.method === 'POST' ? JSON.stringify(endpoint.body || {}) : undefined
+                    });
+                    
+                    const duration = Date.now() - startTime;
+                    
+                    // Tentar ler a resposta
+                    try {
+                        const text = await response.text();
+                        const preview = text.substring(0, 100) + (text.length > 100 ? '...' : '');
+                        
+                        log(`Resposta de ${endpoint.method} ${endpoint.url} (${duration}ms): ${preview}`, 'info');
+                        
+                        // Verificar se parece com dados de pedidos
+                        const containsOrderData = 
+                            text.includes('order') || 
+                            text.includes('pedido') || 
+                            text.includes('customer') || 
+                            text.includes('cliente') ||
+                            text.includes('id') && text.includes('status');
+                            
+                        if (containsOrderData) {
+                            log(`✅ ${endpoint.method} ${endpoint.url}: Contém dados de pedidos`, 'success');
+                            successCount++;
+                        } else {
+                            log(`⚠️ ${endpoint.method} ${endpoint.url}: Não identificado como dados de pedidos`, 'warning');
+                        }
+                        
+                        responsesReceived = true;
+                    } catch (textError) {
+                        log(`⚠️ Erro ao ler resposta de ${endpoint.url}: ${textError.message}`, 'warning');
+                    }
+                    
+                } catch (error) {
+                    log(`❌ Erro ao acessar ${endpoint.method} ${endpoint.url}: ${error.message}`, 'error');
+                }
+            }
+            
+            // Atualizar status
+            if (successCount > 0) {
+                updateStatus('response', 'OK', `${successCount} endpoints retornaram dados de pedidos`);
+            } else if (responsesReceived) {
+                updateStatus('response', 'Parcial', 'Respostas recebidas, mas sem dados de pedidos');
+            } else {
+                updateStatus('response', 'Falha', 'Nenhum endpoint respondeu com dados');
+            }
+        }
+
+        // Event Listeners
+        document.getElementById('testConnection').addEventListener('click', testApiConnection);
+        document.getElementById('testCors').addEventListener('click', testCors);
+        document.getElementById('testAlternatives').addEventListener('click', testAlternativeEndpoints);
+        document.getElementById('clearLogs').addEventListener('click', () => {
+            document.getElementById('logContainer').innerHTML = '';
+            log('Logs limpos', 'info');
+        });
+
+        // Inicialização
+        log('Ferramenta de diagnóstico da API carregada', 'info');
+        log('Clique nos botões acima para iniciar os testes', 'info');
+    </script>
+</body>
+</html>
