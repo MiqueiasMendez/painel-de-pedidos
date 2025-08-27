@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Tester - Mercado Express</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #FF6500;
+        }
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .endpoint-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        button {
+            background: #FF6500;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #e55a00;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #result {
+            background: #f5f5f5;
+            border-radius: 4px;
+            padding: 15px;
+            overflow: auto;
+            max-height: 500px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        #url-input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        .tab.active {
+            border-bottom: 2px solid #FF6500;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .status.online {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status.offline {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,101,0,.3);
+            border-radius: 50%;
+            border-top-color: #FF6500;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1>API Tester - Mercado Express</h1>
+    
+    <div class="card">
+        <h2>Configuração</h2>
+        <div>
+            <label for="base-url">URL Base da API:</label>
+            <input type="text" id="base-url" value="https://mercado-api-9sw5.onrender.com/api" style="width: 400px;">
+            <button onclick="updateBaseUrl()">Atualizar</button>
+        </div>
+        
+        <div class="status" id="api-status">
+            Verificando status da API...
+        </div>
+    </div>
+    
+    <div class="tabs">
+        <div class="tab active" data-tab="endpoints">Endpoints</div>
+        <div class="tab" data-tab="requests">Requisições</div>
+        <div class="tab" data-tab="schemas">Schemas</div>
+    </div>
+    
+    <div class="tab-content active" id="endpoints-tab">
+        <div class="card">
+            <h2>Testar Endpoints</h2>
+            <div class="endpoint-list">
+                <button onclick="testEndpoint('/orders')">Listar Pedidos</button>
+                <button onclick="testEndpoint('/orders/123')">Pedido por ID</button>
+                <button onclick="testEndpoint('/customers')">Listar Clientes</button>
+                <button onclick="testEndpoint('/products')">Listar Produtos</button>
+                <button onclick="testEndpoint('/orders/stats')">Estatísticas</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="tab-content" id="requests-tab">
+        <div class="card">
+            <h2>Fazer Requisição</h2>
+            <div>
+                <select id="method">
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="DELETE">DELETE</option>
+                </select>
+                <input type="text" id="url-input" placeholder="/orders">
+                <div>
+                    <textarea id="request-body" rows="5" style="width: 100%; margin-top: 10px;" placeholder="Corpo da requisição (JSON)"></textarea>
+                </div>
+                <button onclick="makeRequest()" style="margin-top: 10px;">Enviar Requisição</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="tab-content" id="schemas-tab">
+        <div class="card">
+            <h2>Schemas dos Objetos</h2>
+            <div>
+                <select id="schema-select" onchange="showSchema()">
+                    <option value="">Selecione um schema</option>
+                    <option value="order">Order</option>
+                    <option value="customer">Customer</option>
+                    <option value="orderItem">OrderItem</option>
+                </select>
+                <div id="schema-display" style="margin-top: 10px;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>Resultado</h2>
+        <div>
+            <span id="loading-indicator" style="display:none;">
+                <div class="loading"></div> Carregando...
+            </span>
+            <div id="result">Selecione um endpoint para testar</div>
+        </div>
+    </div>
+
+    <script>
+        const baseUrlInput = document.getElementById('base-url');
+        const resultElement = document.getElementById('result');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const apiStatus = document.getElementById('api-status');
+        
+        // Schemas
+        const schemas = {
+            order: {
+                id: "string",
+                orderNumber: "number",
+                customer: "Customer object",
+                items: "Array<OrderItem>",
+                subtotal: "number",
+                deliveryFee: "number",
+                discount: "number?",
+                total: "number",
+                status: "OrderStatus enum",
+                priority: "OrderPriority enum",
+                paymentMethod: "PaymentMethod enum | string",
+                paymentStatus: "'pending' | 'paid' | 'refunded'",
+                notes: "string?",
+                createdAt: "Date",
+                updatedAt: "Date"
+            },
+            customer: {
+                id: "string?",
+                name: "string",
+                phone: "string",
+                address: "string?",
+                email: "string?",
+                notes: "string?",
+                isFrequent: "boolean?",
+                orderCount: "number?"
+            },
+            orderItem: {
+                id: "string",
+                productId: "string?",
+                name: "string",
+                quantity: "number",
+                unitPrice: "number",
+                totalPrice: "number",
+                category: "string?",
+                notes: "string?",
+                discount: "number?"
+            }
+        };
+        
+        function showSchema() {
+            const schemaSelect = document.getElementById('schema-select');
+            const schemaDisplay = document.getElementById('schema-display');
+            const selectedSchema = schemaSelect.value;
+            
+            if (!selectedSchema) {
+                schemaDisplay.innerHTML = "";
+                return;
+            }
+            
+            const schema = schemas[selectedSchema];
+            let html = `<h3>${selectedSchema}</h3><pre>{\n`;
+            
+            for (const [key, type] of Object.entries(schema)) {
+                html += `    ${key}: ${type},\n`;
+            }
+            
+            html += '}</pre>';
+            schemaDisplay.innerHTML = html;
+        }
+        
+        function updateBaseUrl() {
+            const newBaseUrl = baseUrlInput.value.trim();
+            if (newBaseUrl) {
+                checkApiStatus();
+            }
+        }
+        
+        async function checkApiStatus() {
+            apiStatus.className = 'status';
+            apiStatus.innerHTML = 'Verificando status da API...';
+            
+            try {
+                const response = await axios.get(`${baseUrlInput.value}/orders`, { timeout: 10000 });
+                apiStatus.className = 'status online';
+                apiStatus.innerHTML = '✅ API Online';
+            } catch (error) {
+                apiStatus.className = 'status offline';
+                if (error.code === 'ECONNABORTED') {
+                    apiStatus.innerHTML = '❌ Timeout - O servidor pode estar em modo de suspensão (comum em serviços gratuitos do Render.com)';
+                } else if (!error.response) {
+                    apiStatus.innerHTML = '❌ Erro de rede - Verifique a URL ou se o servidor está rodando';
+                } else {
+                    apiStatus.innerHTML = `❌ Erro ${error.response.status}: ${error.response.statusText}`;
+                }
+            }
+        }
+        
+        async function testEndpoint(endpoint) {
+            showLoading(true);
+            resultElement.textContent = 'Carregando...';
+            
+            try {
+                const response = await axios.get(`${baseUrlInput.value}${endpoint}`);
+                displayResult(response);
+            } catch (error) {
+                handleError(error);
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        async function makeRequest() {
+            const method = document.getElementById('method').value;
+            const url = document.getElementById('url-input').value;
+            const bodyText = document.getElementById('request-body').value;
+            
+            if (!url) {
+                alert('Por favor, insira uma URL');
+                return;
+            }
+            
+            showLoading(true);
+            resultElement.textContent = 'Carregando...';
+            
+            try {
+                let body = null;
+                if (bodyText && (method === 'POST' || method === 'PUT')) {
+                    try {
+                        body = JSON.parse(bodyText);
+                    } catch (e) {
+                        alert('JSON inválido no corpo da requisição');
+                        showLoading(false);
+                        return;
+                    }
+                }
+                
+                const config = {
+                    method,
+                    url: `${baseUrlInput.value}${url}`,
+                    data: body
+                };
+                
+                const response = await axios(config);
+                displayResult(response);
+            } catch (error) {
+                handleError(error);
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        function displayResult(response) {
+            const result = {
+                status: response.status,
+                statusText: response.statusText,
+                data: response.data
+            };
+            
+            resultElement.textContent = JSON.stringify(result, null, 2);
+        }
+        
+        function handleError(error) {
+            let errorText = {
+                error: error.message
+            };
+            
+            if (error.response) {
+                errorText.status = error.response.status;
+                errorText.statusText = error.response.statusText;
+                errorText.data = error.response.data;
+            }
+            
+            resultElement.textContent = JSON.stringify(errorText, null, 2);
+        }
+        
+        function showLoading(isLoading) {
+            loadingIndicator.style.display = isLoading ? 'inline-block' : 'none';
+        }
+        
+        // Tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
+            });
+        });
+        
+        // Check API status on load
+        window.addEventListener('load', () => {
+            checkApiStatus();
+        });
+    </script>
+</body>
+</html>
