@@ -1,0 +1,72 @@
+{
+  "short_name": "Mercado Express",
+  "name": "Mercado Express - Painel de Pedidos",
+  "description": "Sistema profissional de gestão de pedidos com suporte offline",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#ff6500",
+  "background_color": "#ffffff",
+  "categories": ["business", "productivity"],
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "shortcuts": [
+    {
+      "name": "Ver Pedidos",
+      "short_name": "Pedidos",
+      "description": "Ver lista de pedidos",
+      "url": "/",
+      "icons": [
+        {
+          "src": "favicon.ico",
+          "sizes": "64x64"
+        }
+      ]
+    },
+    {
+      "name": "Ver Estatísticas",
+      "short_name": "Estatísticas",
+      "description": "Ver estatísticas de vendas",
+      "url": "/?stats=true",
+      "icons": [
+        {
+          "src": "favicon.ico",
+          "sizes": "64x64"
+        }
+      ]
+    },
+    {
+      "name": "Status PWA",
+      "short_name": "Status",
+      "description": "Ver status do cache e conectividade",
+      "url": "/?view=status",
+      "icons": [
+        {
+          "src": "favicon.ico", 
+          "sizes": "64x64"
+        }
+      ]
+    }
+  ],
+  "prefer_related_applications": false
+}
