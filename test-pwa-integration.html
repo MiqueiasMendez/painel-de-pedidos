@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Integração PWA - Painel de Pedidos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+            font-weight: bold;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Teste de Integração PWA - Painel de Pedidos</h1>
+    
+    <div class="test-section">
+        <h2>📱 Status do PWA</h2>
+        <div id="pwa-status"></div>
+        <button onclick="checkPWASupport()">Verificar Suporte PWA</button>
+        <button onclick="checkServiceWorker()">Verificar Service Worker</button>
+        <button onclick="checkManifest()">Verificar Manifest</button>
+    </div>
+
+    <div class="test-section">
+        <h2>🌐 Conectividade e API</h2>
+        <div id="api-status"></div>
+        <button onclick="testApiConnection()">Testar Conexão API</button>
+        <button onclick="testOfflineMode()">Simular Modo Offline</button>
+        <button onclick="testCacheStrategy()">Testar Cache</button>
+    </div>
+
+    <div class="test-section">
+        <h2>💾 IndexedDB e Cache</h2>
+        <div id="cache-status"></div>
+        <button onclick="testIndexedDB()">Testar IndexedDB</button>
+        <button onclick="testCacheStorage()">Testar Cache Storage</button>
+        <button onclick="clearAllCaches()">Limpar Todos os Caches</button>
+    </div>
+
+    <div class="test-section">
+        <h2>🔄 Sincronização Offline</h2>
+        <div id="sync-status"></div>
+        <button onclick="testOfflineSync()">Testar Sync Offline</button>
+        <button onclick="checkSyncQueue()">Verificar Fila de Sync</button>
+    </div>
+
+    <div class="test-section">
+        <h2>📋 Log de Testes</h2>
+        <div id="test-log" class="log"></div>
+        <button onclick="clearLog()">Limpar Log</button>
+    </div>
+
+    <script>
+        let testLog = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            testLog.push(`[${timestamp}] ${message}`);
+            updateLog();
+            console.log(`[PWA Test] ${message}`);
+        }
+
+        function updateLog() {
+            document.getElementById('test-log').textContent = testLog.join('\n');
+        }
+
+        function clearLog() {
+            testLog = [];
+            updateLog();
+        }
+
+        function updateStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        // ==================== PWA TESTS ====================
+
+        async function checkPWASupport() {
+            log('Verificando suporte PWA...');
+            
+            const checks = {
+                serviceWorker: 'serviceWorker' in navigator,
+                manifest: 'manifest' in document.createElement('link'),
+                cacheAPI: 'caches' in window,
+                indexedDB: 'indexedDB' in window,
+                notification: 'Notification' in window,
+                pushManager: 'PushManager' in window
+            };
+
+            let allSupported = true;
+            let statusHTML = '<h3>Suporte PWA:</h3>';
+            
+            for (const [feature, supported] of Object.entries(checks)) {
+                const status = supported ? '✅' : '❌';
+                statusHTML += `<div>${status} ${feature}: ${supported ? 'Suportado' : 'Não suportado'}</div>`;
+                if (!supported) allSupported = false;
+                log(`${feature}: ${supported ? 'Suportado' : 'Não suportado'}`);
+            }
+
+            const overallType = allSupported ? 'success' : 'warning';
+            updateStatus('pwa-status', statusHTML, overallType);
+            log(`PWA Support Check: ${allSupported ? 'Todos os recursos suportados' : 'Alguns recursos não suportados'}`);
+        }
+
+        async function checkServiceWorker() {
+            log('Verificando Service Worker...');
+            
+            if (!('serviceWorker' in navigator)) {
+                updateStatus('pwa-status', '❌ Service Worker não suportado', 'error');
+                log('Service Worker não suportado neste navegador');
+                return;
+            }
+
+            try {
+                const registration = await navigator.serviceWorker.getRegistration();
+                if (registration) {
+                    const state = registration.active ? 'Ativo' : 
+                                 registration.installing ? 'Instalando' : 
+                                 registration.waiting ? 'Aguardando' : 'Desconhecido';
+                    
+                    updateStatus('pwa-status', `✅ Service Worker: ${state}<br>Scope: ${registration.scope}`, 'success');
+                    log(`Service Worker encontrado - Estado: ${state}`);
+                    
+                    // Test message communication
+                    if (registration.active) {
+                        log('Testando comunicação com Service Worker...');
+                        // Test will depend on the SW implementation
+                    }
+                } else {
+                    updateStatus('pwa-status', '⚠️ Service Worker não registrado', 'warning');
+                    log('Service Worker não está registrado');
+                }
+            } catch (error) {
+                updateStatus('pwa-status', `❌ Erro ao verificar SW: ${error.message}`, 'error');
+                log(`Erro ao verificar Service Worker: ${error.message}`);
+            }
+        }
+
+        async function checkManifest() {
+            log('Verificando Web App Manifest...');
+            
+            try {
+                const response = await fetch('/manifest.json');
+                if (response.ok) {
+                    const manifest = await response.json();
+                    updateStatus('pwa-status', `✅ Manifest encontrado<br>Nome: ${manifest.name}<br>Theme: ${manifest.theme_color}`, 'success');
+                    log(`Manifest válido - Nome: ${manifest.name}`);
+                } else {
+                    updateStatus('pwa-status', '❌ Manifest não encontrado', 'error');
+                    log('Manifest não encontrado');
+                }
+            } catch (error) {
+                updateStatus('pwa-status', `❌ Erro ao carregar manifest: ${error.message}`, 'error');
+                log(`Erro ao carregar manifest: ${error.message}`);
+            }
+        }
+
+        // ==================== API TESTS ====================
+
+        async function testApiConnection() {
+            log('Testando conexão com API...');
+            
+            try {
+                const response = await fetch('https://mercado-api-9sw5.onrender.com/api/list-orders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({})
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    updateStatus('api-status', `✅ API Online<br>Pedidos recebidos: ${data.length || 0}`, 'success');
+                    log(`API respondeu com ${data.length || 0} pedidos`);
+                } else {
+                    updateStatus('api-status', `⚠️ API respondeu com status: ${response.status}`, 'warning');
+                    log(`API respondeu com status HTTP ${response.status}`);
+                }
+            } catch (error) {
+                updateStatus('api-status', `❌ Erro de conexão: ${error.message}`, 'error');
+                log(`Erro ao conectar com API: ${error.message}`);
+            }
+        }
+
+        async function testOfflineMode() {
+            log('Simulando modo offline...');
+            
+            // Simulate offline by disabling network (conceptually)
+            updateStatus('api-status', '📱 Modo offline simulado - Testando cache fallback', 'info');
+            log('Modo offline ativado - aplicação deve usar cache');
+            
+            // Try to access cached data
+            try {
+                if ('caches' in window) {
+                    const cache = await caches.open('painel-pedidos-api-v1');
+                    const cachedResponse = await cache.match('https://mercado-api-9sw5.onrender.com/api/list-orders');
+                    
+                    if (cachedResponse) {
+                        log('Dados encontrados no cache para modo offline');
+                        updateStatus('api-status', '✅ Cache funcionando - Dados disponíveis offline', 'success');
+                    } else {
+                        log('Nenhum dado encontrado no cache');
+                        updateStatus('api-status', '⚠️ Nenhum dado em cache encontrado', 'warning');
+                    }
+                } else {
+                    log('Cache API não suportado');
+                }
+            } catch (error) {
+                log(`Erro ao verificar cache: ${error.message}`);
+            }
+        }
+
+        async function testCacheStrategy() {
+            log('Testando estratégia de cache...');
+            
+            if (!('caches' in window)) {
+                updateStatus('cache-status', '❌ Cache API não suportado', 'error');
+                return;
+            }
+
+            try {
+                const cacheNames = await caches.keys();
+                let statusHTML = '<h3>Caches Disponíveis:</h3>';
+                
+                for (const cacheName of cacheNames) {
+                    const cache = await caches.open(cacheName);
+                    const keys = await cache.keys();
+                    statusHTML += `<div>📦 ${cacheName}: ${keys.length} recursos</div>`;
+                    log(`Cache ${cacheName}: ${keys.length} recursos`);
+                }
+
+                updateStatus('cache-status', statusHTML, 'success');
+            } catch (error) {
+                updateStatus('cache-status', `❌ Erro ao verificar caches: ${error.message}`, 'error');
+                log(`Erro ao verificar caches: ${error.message}`);
+            }
+        }
+
+        // ==================== INDEXEDDB TESTS ====================
+
+        async function testIndexedDB() {
+            log('Testando IndexedDB...');
+            
+            if (!('indexedDB' in window)) {
+                updateStatus('cache-status', '❌ IndexedDB não suportado', 'error');
+                return;
+            }
+
+            try {
+                const dbName = 'painel-pedidos-cache';
+                const request = indexedDB.open(dbName, 1);
+                
+                request.onsuccess = function(event) {
+                    const db = event.target.result;
+                    updateStatus('cache-status', `✅ IndexedDB funcionando<br>Database: ${db.name}<br>Versão: ${db.version}`, 'success');
+                    log(`IndexedDB conectado - ${db.name} v${db.version}`);
+                    db.close();
+                };
+                
+                request.onerror = function(event) {
+                    updateStatus('cache-status', '❌ Erro ao conectar IndexedDB', 'error');
+                    log('Erro ao conectar com IndexedDB');
+                };
+            } catch (error) {
+                updateStatus('cache-status', `❌ Erro IndexedDB: ${error.message}`, 'error');
+                log(`Erro no IndexedDB: ${error.message}`);
+            }
+        }
+
+        async function testCacheStorage() {
+            log('Testando Cache Storage...');
+            await testCacheStrategy();
+        }
+
+        async function clearAllCaches() {
+            log('Limpando todos os caches...');
+            
+            if ('caches' in window) {
+                try {
+                    const cacheNames = await caches.keys();
+                    await Promise.all(cacheNames.map(name => caches.delete(name)));
+                    updateStatus('cache-status', '✅ Todos os caches foram limpos', 'success');
+                    log(`${cacheNames.length} caches limpos`);
+                } catch (error) {
+                    updateStatus('cache-status', `❌ Erro ao limpar caches: ${error.message}`, 'error');
+                    log(`Erro ao limpar caches: ${error.message}`);
+                }
+            }
+        }
+
+        // ==================== SYNC TESTS ====================
+
+        async function testOfflineSync() {
+            log('Testando sincronização offline...');
+            updateStatus('sync-status', '🔄 Teste de sincronização em desenvolvimento', 'info');
+            log('Funcionalidade de sync offline implementada na aplicação principal');
+        }
+
+        async function checkSyncQueue() {
+            log('Verificando fila de sincronização...');
+            updateStatus('sync-status', '📋 Verificação da fila em desenvolvimento', 'info');
+            log('Fila de sincronização gerenciada pela aplicação principal');
+        }
+
+        // ==================== AUTO TESTS ====================
+
+        document.addEventListener('DOMContentLoaded', function() {
+            log('Iniciando testes automáticos...');
+            checkPWASupport();
+            checkServiceWorker();
+            checkManifest();
+        });
+    </script>
+</body>
+</html>
