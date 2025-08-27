@@ -1,0 +1,35 @@
+# Definir comportamento padrão para normalização de texto
+* text=auto
+
+# Arquivos de texto que serão sempre normalizados e convertidos para terminações de linha nativas no checkout
+*.js text
+*.jsx text
+*.ts text
+*.tsx text
+*.json text
+*.html text
+*.css text
+*.scss text
+*.md text
+
+# Arquivos binários que não devem ser modificados
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+
+# Arquivos específicos do Windows
+*.bat text eol=crlf
+
+# Arquivos específicos do Linux/macOS
+*.sh text eol=lf
+
+# Arquivos específicos do React/Electron que devem ser tratados como texto
+public/manifest.json text
+public/sw.js text
