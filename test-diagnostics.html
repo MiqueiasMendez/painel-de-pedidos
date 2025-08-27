@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Conectividade - Painel de Pedidos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #results {
+            margin-top: 20px;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste de Conectividade - Painel de Pedidos</h1>
+        <p>Use este teste para verificar se a aplicação React está se conectando corretamente com a API.</p>
+        
+        <div>
+            <button onclick="testApiHealth()">🔍 Testar Saúde da API</button>
+            <button onclick="testOrdersList()">📦 Testar Lista de Pedidos</button>
+            <button onclick="testReactApp()">⚛️ Testar Aplicação React</button>
+            <button onclick="clearResults()">🗑️ Limpar Resultados</button>
+        </div>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        function addResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            results.appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testApiHealth() {
+            addResult('🔍 Testando saúde da API...', 'info');
+            
+            try {
+                const response = await fetch('https://mercado-api-9sw5.onrender.com/api/list-orders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                if (response.ok) {
+                    addResult('✅ API está online e respondendo', 'success');
+                    return true;
+                } else {
+                    addResult(`❌ API retornou erro: ${response.status} ${response.statusText}`, 'error');
+                    return false;
+                }
+            } catch (error) {
+                addResult(`🚫 Erro ao conectar com a API: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function testOrdersList() {
+            addResult('📦 Testando busca de pedidos...', 'info');
+            
+            try {
+                const response = await fetch('https://mercado-api-9sw5.onrender.com/api/list-orders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                if (response.ok) {
+                    const orders = await response.json();
+                    addResult(`✅ ${orders.length} pedidos carregados com sucesso`, 'success');
+                    
+                    if (orders.length > 0) {
+                        const firstOrder = orders[0];
+                        addResult(`📋 Primeiro pedido: Cliente: ${firstOrder.customer_name || firstOrder.customerName}, Status: ${firstOrder.status}, Total: R$ ${firstOrder.total}`, 'info');
+                    }
+                } else {
+                    addResult(`❌ Erro ao buscar pedidos: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                addResult(`🚫 Erro ao buscar pedidos: ${error.message}`, 'error');
+            }
+        }
+
+        async function testReactApp() {
+            addResult('⚛️ Testando aplicação React...', 'info');
+            
+            try {
+                const response = await fetch('http://localhost:3000', {
+                    method: 'GET',
+                });
+                
+                if (response.ok) {
+                    addResult('✅ Aplicação React está rodando em http://localhost:3000', 'success');
+                    addResult('🔗 <a href="http://localhost:3000" target="_blank">Abrir Aplicação React</a>', 'info');
+                } else {
+                    addResult(`❌ Erro ao acessar aplicação React: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addResult(`🚫 Aplicação React não está acessível: ${error.message}`, 'error');
+                addResult('💡 Verifique se o servidor está rodando com "npm start"', 'info');
+            }
+        }
+
+        // Teste automático ao carregar a página
+        window.onload = function() {
+            addResult('🚀 Iniciando testes automáticos...', 'info');
+            setTimeout(testApiHealth, 1000);
+            setTimeout(testReactApp, 2000);
+        };
+    </script>
+</body>
+</html>
