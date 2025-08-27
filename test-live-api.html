@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste API em Tempo Real - Painel de Pedidos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #ccc;
+        }
+        .success { border-left-color: #28a745; background-color: #d4edda; }
+        .error { border-left-color: #dc3545; background-color: #f8d7da; }
+        .warning { border-left-color: #ffc107; background-color: #fff3cd; }
+        .info { border-left-color: #17a2b8; background-color: #d1ecf1; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .online { background-color: #28a745; }
+        .offline { background-color: #dc3545; }
+        .warning { background-color: #ffc107; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste API em Tempo Real</h1>
+        <p>Testando conectividade com a API do Painel de Pedidos</p>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="total-requests">0</div>
+                <div>Total Requisições</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="successful-requests">0</div>
+                <div>Sucessos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="failed-requests">0</div>
+                <div>Falhas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="avg-response-time">0ms</div>
+                <div>Tempo Médio</div>
+            </div>
+        </div>
+
+        <div class="test-result" id="connection-status">
+            <span class="status-indicator offline"></span>
+            Aguardando teste...
+        </div>
+
+        <div style="margin: 20px 0;">
+            <button onclick="testSingleRequest()">Teste Simples</button>
+            <button onclick="startContinuousTest()">Teste Contínuo</button>
+            <button onclick="stopContinuousTest()">Parar Teste</button>
+            <button onclick="testCacheStrategy()">Testar Cache</button>
+            <button onclick="clearLog()">Limpar Log</button>
+        </div>
+
+        <h3>📋 Log de Requisições</h3>
+        <div id="request-log" class="log"></div>
+    </div>
+
+    <script>
+        let stats = {
+            total: 0,
+            successful: 0,
+            failed: 0,
+            responseTimes: []
+        };
+        
+        let continuousTestInterval = null;
+        let requestLog = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            requestLog.unshift(logEntry);
+            
+            // Manter apenas os últimos 50 logs
+            if (requestLog.length > 50) {
+                requestLog = requestLog.slice(0, 50);
+            }
+            
+            updateLogDisplay();
+            console.log(`[API Test] ${message}`);
+        }
+
+        function updateLogDisplay() {
+            document.getElementById('request-log').textContent = requestLog.join('\n');
+        }
+
+        function updateStats() {
+            document.getElementById('total-requests').textContent = stats.total;
+            document.getElementById('successful-requests').textContent = stats.successful;
+            document.getElementById('failed-requests').textContent = stats.failed;
+            
+            const avgTime = stats.responseTimes.length > 0 
+                ? Math.round(stats.responseTimes.reduce((a, b) => a + b, 0) / stats.responseTimes.length)
+                : 0;
+            document.getElementById('avg-response-time').textContent = avgTime + 'ms';
+        }
+
+        function updateConnectionStatus(isOnline, message) {
+            const statusElement = document.getElementById('connection-status');
+            const indicator = statusElement.querySelector('.status-indicator');
+            
+            indicator.className = `status-indicator ${isOnline ? 'online' : 'offline'}`;
+            statusElement.innerHTML = `<span class="status-indicator ${isOnline ? 'online' : 'offline'}"></span>${message}`;
+            statusElement.className = `test-result ${isOnline ? 'success' : 'error'}`;
+        }
+
+        async function testSingleRequest() {
+            log('Iniciando teste simples...');
+            
+            const startTime = performance.now();
+            
+            try {
+                const response = await fetch('https://mercado-api-9sw5.onrender.com/api/list-orders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({})
+                });
+
+                const endTime = performance.now();
+                const responseTime = Math.round(endTime - startTime);
+
+                stats.total++;
+                stats.responseTimes.push(responseTime);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    stats.successful++;
+                    
+                    log(`✅ Sucesso: ${response.status} - ${data.length || 0} pedidos (${responseTime}ms)`);
+                    updateConnectionStatus(true, `API Online - ${data.length || 0} pedidos recebidos em ${responseTime}ms`);
+                } else {
+                    stats.failed++;
+                    log(`⚠️ Status HTTP: ${response.status} (${responseTime}ms)`);
+                    updateConnectionStatus(false, `API retornou status ${response.status}`);
+                }
+
+            } catch (error) {
+                const endTime = performance.now();
+                const responseTime = Math.round(endTime - startTime);
+                
+                stats.total++;
+                stats.failed++;
+                
+                log(`❌ Erro de rede: ${error.message} (${responseTime}ms)`);
+                updateConnectionStatus(false, `Erro de conexão: ${error.message}`);
+            }
+
+            updateStats();
+        }
+
+        function startContinuousTest() {
+            if (continuousTestInterval) {
+                log('⚠️ Teste contínuo já está rodando');
+                return;
+            }
+
+            log('🔄 Iniciando teste contínuo (a cada 10 segundos)...');
+            
+            // Teste imediato
+            testSingleRequest();
+            
+            // Testes subsequentes
+            continuousTestInterval = setInterval(testSingleRequest, 10000);
+        }
+
+        function stopContinuousTest() {
+            if (continuousTestInterval) {
+                clearInterval(continuousTestInterval);
+                continuousTestInterval = null;
+                log('⏹️ Teste contínuo interrompido');
+            } else {
+                log('⚠️ Nenhum teste contínuo em execução');
+            }
+        }
+
+        async function testCacheStrategy() {
+            log('🧪 Testando estratégia de cache...');
+            
+            if (!('caches' in window)) {
+                log('❌ Cache API não suportado');
+                return;
+            }
+
+            try {
+                // Verificar se há dados em cache
+                const cache = await caches.open('painel-pedidos-api-v1');
+                const cachedResponse = await cache.match('https://mercado-api-9sw5.onrender.com/api/list-orders');
+                
+                if (cachedResponse) {
+                    const cachedData = await cachedResponse.json();
+                    log(`📦 Dados encontrados no cache: ${cachedData.length || 0} pedidos`);
+                } else {
+                    log('📦 Nenhum dado encontrado no cache');
+                }
+
+                // Fazer requisição fresca e comparar
+                await testSingleRequest();
+                
+            } catch (error) {
+                log(`❌ Erro ao testar cache: ${error.message}`);
+            }
+        }
+
+        function clearLog() {
+            requestLog = [];
+            updateLogDisplay();
+            log('🧹 Log limpo');
+        }
+
+        // Teste automático ao carregar
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🚀 Página carregada - Executando teste inicial...');
+            testSingleRequest();
+        });
+
+        // Verificar conectividade
+        window.addEventListener('online', () => {
+            log('🌐 Conexão restaurada');
+            testSingleRequest();
+        });
+
+        window.addEventListener('offline', () => {
+            log('📱 Modo offline detectado');
+            updateConnectionStatus(false, 'Sem conexão com a internet');
+        });
+    </script>
+</body>
+</html>
